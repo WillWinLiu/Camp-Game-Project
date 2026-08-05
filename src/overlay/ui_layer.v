@@ -8,7 +8,6 @@ module ui_layer #(
 	input clk,
 	input resetn,
 
-	input [11:0] timer_bcd,
 	input [11:0] score_bcd,
 	input [11:0] high_score_bcd,
 	input [2:0] skill_charge,
@@ -38,7 +37,6 @@ localparam DIGIT_W = 24;
 localparam DIGIT_H = 48;
 localparam DIGIT_GAP = 6;
 
-localparam TIMER_X = 32;
 localparam SCORE_X = 263;
 localparam HIGH_SCORE_X = 494;
 localparam CHARGE_X = 220;
@@ -57,7 +55,6 @@ localparam FONT_W = 6;
 localparam FONT_H = 12;
 
 localparam [23:0] UI_BG_RGB      = 24'h181818;
-localparam [23:0] TIMER_RGB      = 24'hE8E8E8;
 localparam [23:0] SCORE_RGB      = 24'h20E0FF;
 localparam [23:0] HIGH_SCORE_RGB = 24'hE8E8E8;
 localparam [23:0] INDICATOR_RGB  = 24'h20FF40;
@@ -72,9 +69,7 @@ wire fire = in_axis_tvalid && in_axis_tready;
 wire [`SVO_XYBITS-1:0] pixel_x = in_axis_tuser[0] ? 0 : hcursor;
 wire [`SVO_XYBITS-1:0] pixel_y = in_axis_tuser[0] ? 0 : vcursor;
 
-wire [3:0] timer_d2 = timer_bcd[11:8];
-wire [3:0] timer_d1 = timer_bcd[7:4];
-wire [3:0] timer_d0 = timer_bcd[3:0];
+
 
 wire [3:0] score_d2 = score_bcd[11:8];
 wire [3:0] score_d1 = score_bcd[7:4];
@@ -139,7 +134,7 @@ function charge_bar_pixel;
 		charge_bar_pixel = 0;
 
 		if (y >= CHARGE_Y && y < CHARGE_Y + CHARGE_H) begin
-			for (j = 0; j < 5; j = j + 1) begin
+			for (j = 0; j < 3; j = j + 1) begin
 				bar_x = CHARGE_X + j * (CHARGE_W + CHARGE_GAP);
 
 				if (charge > j &&
@@ -174,23 +169,14 @@ always @(*) begin
 	ly_big    = 0;
 	ly_small  = 0;
 
-	tcol = big_col(pixel_x, TIMER_X);
+	tcol = 0;
 	scol = big_col(pixel_x, SCORE_X);
 	hcol = big_col(pixel_x, HIGH_SCORE_X);
 	kcol = small_col(pixel_x, SKILL_TIME_X);
 
 	if (pixel_y >= DIGIT_Y && pixel_y < DIGIT_Y + DIGIT_H) begin
 		ly_big = pixel_y - DIGIT_Y;
-		if (tcol[7]) begin
-			glyph_hit = 1'b1; field = 2'd0; lx_sel = tcol[4:0];
-			case (tcol[6:5])
-				2'd0: digit = timer_d2;
-				2'd1: digit = timer_d1;
-				default: digit = timer_d0;
-			endcase
-			src_x = lx_sel[4:2];
-			src_y = ly_big[5:2];
-		end else if (scol[7]) begin
+		if (scol[7]) begin
 			glyph_hit = 1'b1; field = 2'd1; lx_sel = scol[4:0];
 			case (scol[6:5])
 				2'd0: digit = score_d2;
@@ -271,7 +257,6 @@ wire glyph_on = glyph_hit_d & font_row[3'd5 - src_x_d];   // MSB = leftmost colu
 assign out_axis_tdata =
 	left_ind_d                              ? INDICATOR_RGB :
 	right_ind_d                             ? INDICATOR_RGB :
-	(glyph_on && field_d == 2'd0)               ? TIMER_RGB :
 	(glyph_on && field_d == 2'd1 && score_on_d) ? SCORE_RGB :
 	(glyph_on && field_d == 2'd2)               ? HIGH_SCORE_RGB :
 	(glyph_on && field_d == 2'd3)               ? SKILL_TIME_RGB :

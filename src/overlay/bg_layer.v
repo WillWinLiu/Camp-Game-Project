@@ -33,7 +33,7 @@ reg pipe_in_band;
 wire in_band = (vcursor >= BG_Y0) && (vcursor < BG_Y1);
 wire [6:0] bg_src_x = hcursor[9:3];              // hcursor / 8 -> 0..79
 wire [`SVO_XYBITS-1:0] bg_rel_y = vcursor - BG_Y0;
-wire [5:0] bg_src_y = bg_rel_y[8:3];             // (vcursor - 16) / 8 -> 0..49
+wire [5:0] bg_src_y = 6'd49 - bg_rel_y[8:3];             // flipped vertically (49 - y)
 wire [BG_ADDR_WIDTH-1:0] bg_addr = bg_src_y * BG_IMG_W + bg_src_x;
 wire [15:0] bg_rgb565;
 

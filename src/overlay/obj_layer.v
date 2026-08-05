@@ -15,8 +15,11 @@ module obj_layer #(
 
 	// object state from game controller
 	input [9:0] player_x,
+	input [9:0] player_y,
 	input       player_dir,
 	input       skill_on,
+	input [7:0] skill_timer,
+	input [2:0] selected_character,
 
 	input [MAX_OBJ              -1:0] obj_valid_bus,
 	input [MAX_OBJ*LANE_BITS    -1:0] obj_lane_bus,
@@ -64,15 +67,17 @@ reg obj_hit;
 reg [OBJ_TYPE_BITS-1:0] obj_type_now;
 reg [4:0] obj_local_x;
 reg [4:0] obj_local_y;
-reg [9:0] scan_obj_x;
+reg [10:0] scan_obj_x;
 reg [9:0] scan_obj_ypos;
 reg [9:0] scan_local_x;
 reg [9:0] scan_local_y;
+reg [5:0] scan_obj_w;
+reg [5:0] scan_obj_h;
 
-function [9:0] obj_x;
+function [10:0] obj_x;
 	input [LANE_BITS-1:0] lane;
 	input [XOFF_BITS-1:0] xoff;
-	begin obj_x = `GAME_X0 + ({6'd0, lane} << 5) + {6'd0, xoff}; end
+	begin obj_x = ({7'd0, lane} * 43 + {7'd0, xoff} * 2) - 11'd34; end
 endfunction
 
 always @(*) begin
@@ -84,6 +89,8 @@ always @(*) begin
 	scan_obj_ypos = 0;
 	scan_local_x = 0;
 	scan_local_y = 0;
+	scan_obj_w = 0;
+	scan_obj_h = 0;
 
 	for (obj_i = 0; obj_i < MAX_OBJ; obj_i = obj_i + 1) begin
 		scan_obj_x = obj_x(
@@ -91,11 +98,14 @@ always @(*) begin
 			obj_xoff_bus[obj_i*XOFF_BITS +: XOFF_BITS]
 		);
 		scan_obj_ypos = obj_ypos_bus[obj_i*OBJ_Y_BITS +: OBJ_Y_BITS];
+		scan_obj_w = 6'd32;
+		scan_obj_h = 6'd32;
 
-		// AABB hit test
+		// AABB hit test (using 11-bit signed arithmetic for pixel_x and scan_obj_x)
 		if (!obj_hit && obj_valid_bus[obj_i] &&
-			pixel_x >= scan_obj_x && pixel_x < scan_obj_x + `OBJ_W &&
-			pixel_y >= scan_obj_ypos && pixel_y < scan_obj_ypos + `OBJ_H) begin
+			$signed({1'b0, pixel_x}) >= $signed({scan_obj_x[10] ? 1'b1 : 1'b0, scan_obj_x}) &&
+			$signed({1'b0, pixel_x}) < $signed({scan_obj_x[10] ? 1'b1 : 1'b0, scan_obj_x}) + $signed({5'b00000, scan_obj_w}) &&
+			pixel_y >= scan_obj_ypos && pixel_y < scan_obj_ypos + scan_obj_h) begin
 			scan_local_x = pixel_x - scan_obj_x;
 			scan_local_y = pixel_y - scan_obj_ypos;
 			obj_hit = 1;
@@ -106,7 +116,7 @@ always @(*) begin
 	end
 end
 
-// 16x16 -> 32x32 scaling by replicating pixels
+// 16x16 slot object atlas mapping
 wire [3:0] obj_src_x = obj_local_x[4:1];
 wire [3:0] obj_src_y = obj_local_y[4:1];
 // One atlas ROM holds every object sprite; the type picks its 256-entry slot, so
@@ -115,21 +125,24 @@ wire [OBJ_ATLAS_ADDR_WIDTH-1:0] obj_atlas_addr = {obj_type_now, obj_src_y, obj_s
 wire [7:0] obj_rgb;
 
 wire hit_player = pixel_x >= player_x && pixel_x < player_x + `PLAYER_W &&
-				  pixel_y >= `PLAYER_Y && pixel_y < `PLAYER_Y + `PLAYER_H;
+				  pixel_y >= player_y && pixel_y < player_y + `PLAYER_H;
 
-// 32x32 -> 64x64 scaling by replicating pixels
+// 16x16 -> 32x32 scaling by replicating pixels
 wire [9:0] player_rel_x = pixel_x - player_x;
-wire [9:0] player_rel_y = pixel_y - `PLAYER_Y;
-wire [PLAYER_SRC_BITS-1:0] player_src_x = player_rel_x[5:1];
-wire [PLAYER_SRC_BITS-1:0] player_src_y = player_rel_y[5:1];
-wire [PLAYER_SRC_BITS-1:0] player_addr_x = player_dir ? player_src_x : (5'd31 - player_src_x);
-// walk animation: alternate between 2 frames, flipping every 16px of travel
-wire player_frame = player_x[6];
-wire [PLAYER_SRC_ADDR_WIDTH-1:0] player_addr = {player_frame, player_src_y, player_addr_x};
+wire [9:0] player_rel_y = pixel_y - player_y;
+wire [3:0] player_src_x = player_rel_x[4:1];
+wire [3:0] player_src_y = player_rel_y[4:1];
+wire [3:0] player_addr_x = player_dir ? player_src_x : (4'd15 - player_src_x);
+
+wire [10:0] player_dino_addr = {selected_character, player_src_y, player_addr_x};
+
+wire [1:0] shield_slot = (skill_timer[1:0] == 2'd3) ? 2'd0 : ((skill_timer[1:0] == 2'd2) ? 2'd1 : 2'd2);
+wire [9:0] shield_addr = {shield_slot, player_src_y, player_src_x};
+wire [7:0] shield_rgb;
 
 wire [7:0] player_normal_rgb;
 wire [7:0] player_skill_rgb;
-wire [7:0] player_rgb = skill_on_d ? player_skill_rgb : player_normal_rgb;
+wire [7:0] player_rgb = player_normal_rgb;
 
 function [23:0] rgb323_to_bgr888;
 	input [7:0] c;                 // [7:5]=R3 [4:3]=G2 [2:0]=B3
@@ -144,15 +157,20 @@ function [23:0] rgb323_to_bgr888;
 	end
 endfunction
 
+reg [2:0] sel_char_d;
+
 // If there is an object then just show it, otherwise show the background pixel
 wire [SVO_BITS_PER_PIXEL-1:0] pxl_after_obj =
 	obj_hit_d && obj_rgb != TRANSPARENT_VAL ?
 	rgb323_to_bgr888(obj_rgb) : bg_rgb_d;
 
-// If the player sprite is hit then show it, otherwise show whatever comes from obj layer
+// If the player sprite or active shield is hit then show it, otherwise show whatever comes from obj layer
+wire [SVO_BITS_PER_PIXEL-1:0] player_bgr = rgb323_to_bgr888(player_rgb);
+wire [SVO_BITS_PER_PIXEL-1:0] shield_bgr = rgb323_to_bgr888(shield_rgb);
+
 wire [SVO_BITS_PER_PIXEL-1:0] pxl_after_player =
-	hit_player_d && player_rgb != 8'h00 ?
-	rgb323_to_bgr888(player_rgb) : pxl_after_obj;
+	(hit_player_d && skill_on_d && shield_rgb != 8'h00) ? shield_bgr :
+	(hit_player_d && player_rgb != 8'h00)               ? player_bgr : pxl_after_obj;
 
 assign in_axis_tready  = out_axis_tready;
 assign out_axis_tvalid = tvalid_d;
@@ -164,6 +182,7 @@ always @(posedge clk) begin
 		obj_hit_d <= 0;
 		hit_player_d <= 0;
 		skill_on_d <= 0;
+		sel_char_d <= 0;
 		bg_rgb_d <= 0;
 		tuser_d <= 0;
 		tvalid_d <= 0;
@@ -173,6 +192,7 @@ always @(posedge clk) begin
 			obj_hit_d <= obj_hit;
 			hit_player_d <= hit_player;
 			skill_on_d <= skill_on;
+			sel_char_d <= selected_character;
 			bg_rgb_d <= in_axis_tdata;
 			tuser_d <= in_axis_tuser;
 		end
@@ -214,24 +234,24 @@ rom #(
 
 rom #(
 	.DATA_WIDTH(8),
-	.ADDR_WIDTH(PLAYER_SRC_ADDR_WIDTH),
+	.ADDR_WIDTH(11),
 	.DEPTH(2048),
-	.INIT_FILE("src/assets/player_right_32.mem")
+	.INIT_FILE("src/assets/dino_atlas.mem")
 ) u_player_right_rom (
 	.clk(clk),
-	.addr(player_addr),
+	.addr(player_dino_addr),
 	.data(player_normal_rgb)
 );
 
 rom #(
 	.DATA_WIDTH(8),
-	.ADDR_WIDTH(PLAYER_SRC_ADDR_WIDTH),
-	.DEPTH(2048),
-	.INIT_FILE("src/assets/player_skill_32.mem")
-) u_player_skill_rom (
+	.ADDR_WIDTH(10),
+	.DEPTH(1024),
+	.INIT_FILE("src/assets/shield_atlas.mem")
+) u_shield_atlas_rom (
 	.clk(clk),
-	.addr(player_addr),
-	.data(player_skill_rgb)
+	.addr(shield_addr),
+	.data(shield_rgb)
 );
 
 endmodule

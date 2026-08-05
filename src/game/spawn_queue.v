@@ -30,21 +30,27 @@ wire [31:0] type_rnd;
 wire [3:0] cand_lane = pos_rnd[3:0];
 wire [3:0] cand_xoff = pos_rnd[7:4];
 wire [6:0] cand_pct  = type_rnd[6:0];
-reg [2:0] cand_type;
+reg [2:0] clump_cnt;
+
+wire is_cactus_raw = (cand_pct < 50);
+wire force_non_cactus = (is_cactus_raw && clump_cnt >= 4);
+wire [2:0] cand_type = force_non_cactus ? 3'd1 : (is_cactus_raw ? 3'd0 : 3'd1);
 
 wire cand_valid = cand_pct < 100;
 wire cand_next = enable && !full;
 wire fifo_wr_en = cand_next && cand_valid;
 wire [10:0] fifo_wr_data = {cand_lane, cand_xoff, cand_type};
 
-always @(*) begin
-	     if (cand_pct < 20) cand_type = TYPE_COIN_1;
-	else if (cand_pct < 40) cand_type = TYPE_COIN_3;
-	else if (cand_pct < 50) cand_type = TYPE_COIN_5;
-	else if (cand_pct < 70) cand_type = TYPE_MINUS3;
-	else if (cand_pct < 85) cand_type = TYPE_MINUS5;
-	else if (cand_pct < 90) cand_type = TYPE_TIME;
-	else                    cand_type = TYPE_CHARGE;
+always @(posedge clk) begin
+	if (!resetn) begin
+		clump_cnt <= 0;
+	end else if (fifo_wr_en) begin
+		if (cand_type == 3'd0) begin
+			clump_cnt <= clump_cnt + 1;
+		end else begin
+			clump_cnt <= 0;
+		end
+	end
 end
 
 lfsr32 #(

@@ -46,23 +46,31 @@ wire ui_tready;
 wire [SVO_BITS_PER_PIXEL-1:0] ui_tdata;
 wire [0:0] ui_tuser;
 
+wire menu_tvalid;
+wire menu_tready;
+wire [SVO_BITS_PER_PIXEL-1:0] menu_tdata;
+wire [0:0] menu_tuser;
+
 wire frame_tick;
 wire [9:0] player_x;
+wire [9:0] player_y;
 wire player_dir;
 wire [MAX_OBJ              -1:0] obj_valid_bus;
 wire [MAX_OBJ*LANE_BITS    -1:0] obj_lane_bus;
 wire [MAX_OBJ*XOFF_BITS    -1:0] obj_xoff_bus;
 wire [MAX_OBJ*OBJ_Y_BITS   -1:0] obj_ypos_bus;
 wire [MAX_OBJ*OBJ_TYPE_BITS-1:0] obj_type_bus;
-wire [7:0] timer;
 wire [9:0] score;
-wire [11:0] timer_bcd;
 wire [11:0] score_bcd;
 wire [11:0] high_score_bcd;
 wire [2:0] skill_charge;
 wire [7:0] skill_timer;
 wire skill_on;
 wire game_over;
+wire menu_active;
+wire [1:0] game_state;
+wire [2:0] char_index;
+wire [2:0] selected_character;
 
 // Frame start signal
 assign frame_tick = bg_tvalid && bg_tready && bg_tuser[0];
@@ -86,6 +94,7 @@ game_ctrl #(
 	.btn_skill(btn_skill),
 
 	.player_x(player_x),
+	.player_y(player_y),
 	.player_dir(player_dir),
 
 	.obj_valid_bus(obj_valid_bus),
@@ -94,15 +103,17 @@ game_ctrl #(
 	.obj_ypos_bus(obj_ypos_bus),
 	.obj_type_bus(obj_type_bus),
 
-	.timer(timer),
 	.score(score),
-	.timer_bcd(timer_bcd),
 	.score_bcd(score_bcd),
 	.high_score_bcd(high_score_bcd),
 	.skill_charge(skill_charge),
 	.skill_timer(skill_timer),
 	.skill_on(skill_on),
-	.game_over(game_over)
+	.game_over(game_over),
+	.menu_active(menu_active),
+	.game_state(game_state),
+	.char_index(char_index),
+	.selected_character(selected_character)
 );
 
 bg_layer #(
@@ -130,8 +141,11 @@ obj_layer #(
 	.resetn(resetn),
 
 	.player_x(player_x),
+	.player_y(player_y),
 	.player_dir(player_dir),
 	.skill_on(skill_on),
+	.skill_timer(skill_timer),
+	.selected_character(selected_character),
 	.obj_valid_bus(obj_valid_bus),
 	.obj_lane_bus(obj_lane_bus),
 	.obj_xoff_bus(obj_xoff_bus),
@@ -156,7 +170,6 @@ ui_layer #(
 	.clk(clk),
 	.resetn(resetn),
 
-	.timer_bcd(timer_bcd),
 	.score_bcd(score_bcd),
 	.high_score_bcd(high_score_bcd),
 	.skill_charge(skill_charge),
@@ -176,6 +189,26 @@ ui_layer #(
 	.out_axis_tuser(ui_tuser)
 );
 
+char_menu #(
+	`SVO_PASS_PARAMS
+) u_char_menu (
+	.clk(clk),
+	.resetn(resetn),
+
+	.show(menu_active),
+	.char_index(char_index),
+
+	.in_axis_tvalid(ui_tvalid),
+	.in_axis_tready(ui_tready),
+	.in_axis_tdata(ui_tdata),
+	.in_axis_tuser(ui_tuser),
+
+	.out_axis_tvalid(menu_tvalid),
+	.out_axis_tready(menu_tready),
+	.out_axis_tdata(menu_tdata),
+	.out_axis_tuser(menu_tuser)
+);
+
 res_overlay #(
 	`SVO_PASS_PARAMS
 ) u_res_overlay (
@@ -186,10 +219,10 @@ res_overlay #(
 	.score_bcd(score_bcd),
 	.high_score_bcd(high_score_bcd),
 
-	.in_axis_tvalid(ui_tvalid),
-	.in_axis_tready(ui_tready),
-	.in_axis_tdata(ui_tdata),
-	.in_axis_tuser(ui_tuser),
+	.in_axis_tvalid(menu_tvalid),
+	.in_axis_tready(menu_tready),
+	.in_axis_tdata(menu_tdata),
+	.in_axis_tuser(menu_tuser),
 
 	.out_axis_tvalid(out_axis_tvalid),
 	.out_axis_tready(out_axis_tready),

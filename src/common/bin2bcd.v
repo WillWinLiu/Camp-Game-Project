@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module bin2bcd #(
-	parameter BIN_BITS = 10
+	parameter BIN_BITS = 12
 ) (
 	input [BIN_BITS-1:0] bin,
 	output reg [11:0] bcd

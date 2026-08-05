@@ -31,7 +31,7 @@ localparam [9:0] BORDER_T = 10'd4;
 
 // Text layout. All glyphs come from the shared 6x12 res_font ROM and are
 // scaled by power-of-2 replication (title/value x4 -> 24x48, labels x2 -> 12x24).
-localparam [9:0] TITLE_X       = 10'd222;
+localparam [9:0] TITLE_X       = 10'd196;
 localparam [9:0] TITLE_Y       = 10'd140;
 localparam [9:0] TITLE_STRIDE  = 10'd28;   // (6+1) * 4
 localparam [9:0] TITLE_GW      = 10'd24;   // 6 * 4
@@ -95,33 +95,35 @@ endfunction
 // Map a text string + char position to a combined-font glyph index.
 function [4:0] text_glyph;
 	input [1:0] tid;
-	input [2:0] idx;
+	input [3:0] idx;
 	begin
 		text_glyph = GLYPH_SPACE;
 		case (tid)
-			TXT_TITLE: case (idx)          // "TIME UP"
-				0: text_glyph = 5'd20;     // T
-				1: text_glyph = 5'd14;     // I
-				2: text_glyph = 5'd15;     // M
-				3: text_glyph = 5'd13;     // E
+			TXT_TITLE: case (idx)          // "GAME OVER"
+				0: text_glyph = 5'd17;     // G
+				1: text_glyph = 5'd11;     // A
+				2: text_glyph = 5'd20;     // M
+				3: text_glyph = 5'd15;     // E
 				4: text_glyph = GLYPH_SPACE;
-				5: text_glyph = 5'd21;     // U
-				6: text_glyph = 5'd17;     // P
+				5: text_glyph = 5'd21;     // O
+				6: text_glyph = 5'd25;     // V
+				7: text_glyph = 5'd15;     // E
+				8: text_glyph = 5'd22;     // R
 				default: text_glyph = GLYPH_SPACE;
 			endcase
 			TXT_SCORE: case (idx)          // "SCORE"
-				0: text_glyph = 5'd19;     // S
-				1: text_glyph = 5'd12;     // C
-				2: text_glyph = 5'd16;     // O
-				3: text_glyph = 5'd18;     // R
-				4: text_glyph = 5'd13;     // E
+				0: text_glyph = 5'd23;     // S
+				1: text_glyph = 5'd13;     // C
+				2: text_glyph = 5'd21;     // O
+				3: text_glyph = 5'd22;     // R
+				4: text_glyph = 5'd15;     // E
 				default: text_glyph = GLYPH_SPACE;
 			endcase
 			TXT_BEST: case (idx)           // "BEST"
-				0: text_glyph = 5'd11;     // B
-				1: text_glyph = 5'd13;     // E
-				2: text_glyph = 5'd19;     // S
-				3: text_glyph = 5'd20;     // T
+				0: text_glyph = 5'd12;     // B
+				1: text_glyph = 5'd15;     // E
+				2: text_glyph = 5'd23;     // S
+				3: text_glyph = 5'd24;     // T
 				default: text_glyph = GLYPH_SPACE;
 			endcase
 			default: text_glyph = GLYPH_SPACE;
@@ -131,7 +133,7 @@ endfunction
 
 // For a text field at base X with a given char stride & scaled glyph width,
 // report which char the pixel hits: {hit(1), idx(3), local_x(5)}.
-function [8:0] glyph_col;
+function [9:0] glyph_col;
 	input [`SVO_XYBITS-1:0] px;
 	input [9:0] base;
 	input [9:0] stride;
@@ -141,13 +143,13 @@ function [8:0] glyph_col;
 	reg [9:0] cleft;
 	reg [4:0] lx;
 	begin
-		glyph_col = 9'd0;
-		for (i = 0; i < 7; i = i + 1) begin
+		glyph_col = 10'd0;
+		for (i = 0; i < 10; i = i + 1) begin
 			if (i < nchars) begin
 				cleft = base + i * stride;
 				if (px >= cleft && px < cleft + gw) begin
 					lx = px - cleft;
-					glyph_col = {1'b1, i[2:0], lx};
+					glyph_col = {1'b1, i[3:0], lx};
 				end
 			end
 		end
@@ -163,8 +165,8 @@ reg [4:0]  glyph;
 reg [2:0]  font_x;
 reg [3:0]  font_y;
 
-reg [8:0]  gc;
-reg [2:0]  ci;
+reg [9:0]  gc;
+reg [3:0]  ci;
 
 always @(*) begin
 	glyph_hit = 1'b0;
@@ -172,14 +174,14 @@ always @(*) begin
 	glyph     = 5'd0;
 	font_x    = 3'd0;
 	font_y    = 4'd0;
-	gc        = 9'd0;
-	ci        = 3'd0;
+	gc        = 10'd0;
+	ci        = 4'd0;
 
-	// Title "TIME UP", scale 4
+	// Title "GAME OVER", scale 4
 	if (pixel_y >= TITLE_Y && pixel_y < TITLE_Y + 48) begin
-		gc = glyph_col(pixel_x, TITLE_X, TITLE_STRIDE, TITLE_GW, 4'd7);
-		if (gc[8]) begin
-			ci = gc[7:5];
+		gc = glyph_col(pixel_x, TITLE_X, TITLE_STRIDE, TITLE_GW, 4'd9);
+		if (gc[9]) begin
+			ci = gc[8:5];
 			glyph = text_glyph(TXT_TITLE, ci);
 			if (glyph != GLYPH_SPACE) begin
 				glyph_hit = 1'b1;
@@ -193,8 +195,8 @@ always @(*) begin
 	// Score label "SCORE", scale 2
 	if (!glyph_hit && pixel_y >= SCORE_LABEL_Y && pixel_y < SCORE_LABEL_Y + 24) begin
 		gc = glyph_col(pixel_x, SCORE_LABEL_X, LABEL_STRIDE, LABEL_GW, 4'd5);
-		if (gc[8]) begin
-			ci = gc[7:5];
+		if (gc[9]) begin
+			ci = gc[8:5];
 			glyph = text_glyph(TXT_SCORE, ci);
 			if (glyph != GLYPH_SPACE) begin
 				glyph_hit = 1'b1;
@@ -207,8 +209,8 @@ always @(*) begin
 	// Best label "BEST", scale 2
 	if (!glyph_hit && pixel_y >= BEST_LABEL_Y && pixel_y < BEST_LABEL_Y + 24) begin
 		gc = glyph_col(pixel_x, BEST_LABEL_X, LABEL_STRIDE, LABEL_GW, 4'd4);
-		if (gc[8]) begin
-			ci = gc[7:5];
+		if (gc[9]) begin
+			ci = gc[8:5];
 			glyph = text_glyph(TXT_BEST, ci);
 			if (glyph != GLYPH_SPACE) begin
 				glyph_hit = 1'b1;
@@ -221,11 +223,11 @@ always @(*) begin
 	// Score value (3 BCD digits), scale 4
 	if (!glyph_hit && pixel_y >= SCORE_VAL_Y && pixel_y < SCORE_VAL_Y + 48) begin
 		gc = glyph_col(pixel_x, VALUE_X, VAL_STRIDE, VAL_GW, 4'd3);
-		if (gc[8]) begin
-			ci = gc[7:5];
+		if (gc[9]) begin
+			ci = gc[8:5];
 			case (ci)
-				3'd0: glyph = {1'b0, score_bcd[11:8]};
-				3'd1: glyph = {1'b0, score_bcd[7:4]};
+				4'd0: glyph = {1'b0, score_bcd[11:8]};
+				4'd1: glyph = {1'b0, score_bcd[7:4]};
 				default: glyph = {1'b0, score_bcd[3:0]};
 			endcase
 			glyph_hit = 1'b1;
@@ -237,11 +239,11 @@ always @(*) begin
 	// Best value (3 BCD digits), scale 4
 	if (!glyph_hit && pixel_y >= BEST_VAL_Y && pixel_y < BEST_VAL_Y + 48) begin
 		gc = glyph_col(pixel_x, VALUE_X, VAL_STRIDE, VAL_GW, 4'd3);
-		if (gc[8]) begin
-			ci = gc[7:5];
+		if (gc[9]) begin
+			ci = gc[8:5];
 			case (ci)
-				3'd0: glyph = {1'b0, high_score_bcd[11:8]};
-				3'd1: glyph = {1'b0, high_score_bcd[7:4]};
+				4'd0: glyph = {1'b0, high_score_bcd[11:8]};
+				4'd1: glyph = {1'b0, high_score_bcd[7:4]};
 				default: glyph = {1'b0, high_score_bcd[3:0]};
 			endcase
 			glyph_hit = 1'b1;
@@ -288,7 +290,7 @@ wire [23:0] bg_sel = show_d ? dimmed : base_d;
 assign out_axis_tdata =
 	(show_d && glyph_on)     ? (is_title_d ? COLOR_TITLE : COLOR_TEXT) :
 	(show_d && in_border_d)  ? COLOR_BORDER :
-	(show_d && in_panel_d)   ? COLOR_PANEL :
+	(show_d && in_panel_d)   ? dim_bgr888(base_d) :
 							   bg_sel;
 
 always @(posedge clk) begin

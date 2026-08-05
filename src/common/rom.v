@@ -10,7 +10,7 @@ module rom #(
 	input [ADDR_WIDTH-1:0] addr,
 	output reg [DATA_WIDTH-1:0] data
 );
-reg [DATA_WIDTH-1:0] mem [0:DEPTH-1];
+(* syn_ramstyle = "block" *) reg [DATA_WIDTH-1:0] mem [0:DEPTH-1];
 
 initial begin
 	$readmemh(INIT_FILE, mem);
