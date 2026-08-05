@@ -14,8 +14,6 @@
         <File path="src/common/rom.v" type="file.verilog" enable="1"/>
         <File path="src/game/game_core.v" type="file.verilog" enable="1"/>
         <File path="src/game/game_ctrl.v" type="file.verilog" enable="1"/>
-        <File path="src/game/skill_slot.v" type="file.verilog" enable="1"/>
-        <File path="src/game/spawn_postprocess.v" type="file.verilog" enable="1"/>
         <File path="src/game/spawn_queue.v" type="file.verilog" enable="1"/>
         <File path="src/game/game_defs.vh" type="file.verilog" enable="1"/>
         <File path="src/hdmi/svo_defines.vh" type="file.verilog" enable="1"/>

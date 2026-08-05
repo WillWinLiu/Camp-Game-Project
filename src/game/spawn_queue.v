@@ -17,13 +17,6 @@ module spawn_queue #(
 	output wire full,
 	output wire [FIFO_ADDR_W:0] level
 );
-localparam TYPE_COIN_1 = 0;
-localparam TYPE_COIN_3 = 1;
-localparam TYPE_COIN_5 = 2;
-localparam TYPE_MINUS3 = 3;
-localparam TYPE_MINUS5 = 4;
-localparam TYPE_TIME = 5;
-localparam TYPE_CHARGE = 6;
 
 wire [31:0] pos_rnd;
 wire [31:0] type_rnd;

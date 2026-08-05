@@ -12,10 +12,7 @@ module game_ctrl #(
 	parameter PLAYER_HIT_TOP_PAD = 16,
 	parameter PLAYER_START_X = 288,
 	parameter PLAYER_SPEED_START = 8,
-	parameter FPS = 60,
-	parameter SKILL_CHARGE_MAX = 5,
-	parameter SKILL_ENABLE = 1,
-	parameter SKILL_DURATION = 0
+	parameter FPS = 60
 )(
 	input clk,
 	input resetn,
@@ -52,14 +49,6 @@ module game_ctrl #(
 localparam S_MENU = 2'd0;
 localparam S_PLAY = 2'd1;
 localparam S_OVER = 2'd2;
-
-localparam TYPE_COIN_1 = 0;
-localparam TYPE_COIN_3 = 1;
-localparam TYPE_COIN_5 = 2;
-localparam TYPE_MINUS3 = 3;
-localparam TYPE_MINUS5 = 4;
-localparam TYPE_TIME = 5;
-localparam TYPE_CHARGE = 6;
 
 localparam [9:0] SCREEN_W = 640;
 localparam [9:0] OBJ_GROUND_Y = `UI_TOP - `OBJ_H;
@@ -125,28 +114,9 @@ spawn_queue u_spawn_queue (
 	.empty(spawn_fifo_empty)
 );
 
-wire [LANE_BITS-1:0] spawn_lane_raw = spawn_data[10:7];
-wire [XOFF_BITS-1:0] spawn_xoff_raw = spawn_data[6:3];
-wire [OBJ_TYPE_BITS-1:0] spawn_type_raw = spawn_data[2:0];
-wire [LANE_BITS-1:0] spawn_lane;
-wire [XOFF_BITS-1:0] spawn_xoff;
-wire [OBJ_TYPE_BITS-1:0] spawn_type;
-
-spawn_postprocess #(
-	.LANE_BITS(LANE_BITS),
-	.XOFF_BITS(XOFF_BITS),
-	.OBJ_TYPE_BITS(OBJ_TYPE_BITS)
-) u_spawn_postprocess (
-	.clk(clk),
-	.resetn(resetn),
-	.fire(spawn_pop),
-	.raw_lane(spawn_lane_raw),
-	.raw_xoff(spawn_xoff_raw),
-	.raw_type(spawn_type_raw),
-	.out_lane(spawn_lane),
-	.out_xoff(spawn_xoff),
-	.out_type(spawn_type)
-);
+wire [LANE_BITS-1:0] spawn_lane = spawn_data[10:7];
+wire [XOFF_BITS-1:0] spawn_xoff = spawn_data[6:3];
+wire [OBJ_TYPE_BITS-1:0] spawn_type = spawn_data[2:0];
 
 integer hit_i;
 reg hit_valid;
@@ -206,34 +176,12 @@ end
 assign remove_valid = (hit_valid && shield_hp > 0) || offscreen_valid;
 wire [4:0] remove_idx = (hit_valid && shield_hp > 0) ? hit_idx : offscreen_idx;
 
-reg [9:0] next_score;
-reg [2:0] next_charge;
-reg signed [5:0] score_delta;
-reg signed [6:0] score_delta_eff;
-reg signed [10:0] score_sum;
-wire [9:0] final_score = hit_valid ? next_score : score;
-
-always @(*) begin
-	next_score = score;
-	next_charge = skill_charge;
-	score_delta = 0;
-	score_delta_eff = 0;
-	score_sum = score;
-
-	// Rule 1: Neither Cacti nor Meteorites give points!
-	if (hit_valid) begin
-		score_delta = 0; // 0 points given on obstacle collision
-	end
-end
-
-
-
-wire [11:0] final_score_12 = {2'b00, final_score};
+wire [11:0] score_12 = {2'b00, score};
 
 bin2bcd #(
 	.BIN_BITS(12)
 ) u_score_bcd (
-	.bin(final_score_12),
+	.bin(score_12),
 	.bcd(score_bcd)
 );
 
@@ -342,6 +290,14 @@ always @(posedge clk) begin
 					btn_left_q  <= btn_left;
 					btn_right_q <= btn_right;
 					btn_skill_q <= btn_skill;
+
+					if (btn_start_rise) begin
+						state <= S_MENU;
+						menu_btn_timer <= 15;
+						skill_charge <= 0;
+						shield_hp <= 0;
+						obj_count <= 0;
+					end
 
 					// Equip 3-Hit Shield when Button 3 (btn_skill) is pressed & charge available
 					if (btn_skill_rise && skill_charge > 0 && shield_hp == 0) begin
@@ -493,9 +449,6 @@ always @(posedge clk) begin
 					end
 				end
 		end
-
-		if (SKILL_ENABLE && skill_start)
-			skill_charge <= 0;
 	end
 end
 endmodule

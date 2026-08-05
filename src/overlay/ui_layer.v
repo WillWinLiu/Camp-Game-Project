@@ -3,7 +3,7 @@
 
 module ui_layer #(
 	`SVO_DEFAULT_PARAMS,
-	parameter SKILL_ENABLE = 0
+	parameter SKILL_ENABLE = 1
 ) (
 	input clk,
 	input resetn,
