@@ -41,6 +41,7 @@ module game_ctrl #(
 	output [7:0] skill_timer,
 	output skill_on,
 	output game_over,
+	output game_won,
 	output menu_active,
 	output [1:0] game_state,
 	output reg [2:0] char_index,
@@ -49,6 +50,7 @@ module game_ctrl #(
 localparam S_MENU = 2'd0;
 localparam S_PLAY = 2'd1;
 localparam S_OVER = 2'd2;
+localparam S_WON  = 2'd3;
 
 localparam [9:0] SCREEN_W = 640;
 localparam [9:0] OBJ_GROUND_Y = `UI_TOP - `OBJ_H;
@@ -73,7 +75,8 @@ reg btn_start_q, btn_left_q, btn_right_q, btn_skill_q;
 reg [7:0] spawn_period;
 reg [5:0] menu_btn_timer;
 reg [1:0] shield_hp;
-reg [9:0] next_shield_score;
+reg [11:0] next_shield_score;
+reg [1:0] shield_100_count;
 
 wire any_start_btn  = btn_start || btn_skill;
 wire btn_start_rise = any_start_btn && !btn_start_q;
@@ -101,6 +104,7 @@ wire sec_tick = game_step && timer_tick;
 
 assign game_over   = (state == S_OVER);
 assign menu_active = (state == S_MENU);
+assign game_won     = (state == S_WON);
 assign game_state  = state;
 
 
@@ -218,6 +222,8 @@ always @(posedge clk) begin
 		score_cnt <= 0;
 		high_score_bcd <= 12'h000;
 		skill_charge <= 0;
+		shield_hp <= 0;
+		next_shield_score <= 12'd50;
 		state <= S_MENU;
 		char_index <= 0;
 		selected_character <= 0;
@@ -267,7 +273,7 @@ always @(posedge clk) begin
 					score_cnt <= 0;
 					skill_charge <= 0;
 					shield_hp <= 0;
-					next_shield_score <= 10'd50;
+					next_shield_score <= 12'd50;
 					frame_cnt <= 0;
 					spawn_cnt <= SPAWN_PERIOD_FRAMES;
 
@@ -305,12 +311,20 @@ always @(posedge clk) begin
 						shield_hp <= 2'd3;
 					end
 
-					// Earn 1 Shield Charge for every 50 score (Max 3 stored charges!)
+					// Earn Shield Charges at explicit score targets: 50, 100, 200, 350, 500, 650, 800, 950
 					if (score >= next_shield_score) begin
 						if (skill_charge < 3'd3) begin
 							skill_charge <= skill_charge + 1;
 						end
-						next_shield_score <= next_shield_score + 10'd50;
+						case (next_shield_score)
+							12'd50:  next_shield_score <= 12'd200;
+							12'd200: next_shield_score <= 12'd350;
+							12'd350: next_shield_score <= 12'd500;
+							12'd500: next_shield_score <= 12'd650;
+							12'd650: next_shield_score <= 12'd800;
+							12'd800: next_shield_score <= 12'd950;
+							default: next_shield_score <= next_shield_score + 12'd150;
+						endcase
 					end
 
 					if (hit_valid) begin
@@ -439,6 +453,9 @@ always @(posedge clk) begin
 					// Live high score update (surpass the high score with current score)
 					if (score_bcd > high_score_bcd) begin
 						high_score_bcd <= score_bcd;
+						if (score_bcd == 12'h999) begin
+							state <= S_WON;
+						end
 					end
 
 					// Keep frame_cnt running (for gravity and sec_tick)

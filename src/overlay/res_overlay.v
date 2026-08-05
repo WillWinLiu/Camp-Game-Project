@@ -8,6 +8,7 @@ module res_overlay #(
 	input resetn,
 
 	input show,
+	input game_won,
 	input [11:0] score_bcd,
 	input [11:0] high_score_bcd,
 
@@ -52,14 +53,16 @@ localparam [9:0] BEST_VAL_Y    = 10'd288;
 // combined-font glyph indices (see .vscode/bitmap2mem.ps1)
 localparam GLYPH_SPACE = 5'd10;
 
-localparam [1:0] TXT_TITLE = 2'd0;
-localparam [1:0] TXT_SCORE = 2'd1;
-localparam [1:0] TXT_BEST  = 2'd2;
+localparam [1:0] TXT_TITLE_OVER = 2'd0;
+localparam [1:0] TXT_TITLE_WON  = 2'd3;
+localparam [1:0] TXT_SCORE      = 2'd1;
+localparam [1:0] TXT_BEST       = 2'd2;
 
-localparam [23:0] COLOR_PANEL  = 24'h000000;
-localparam [23:0] COLOR_BORDER = 24'hFFFFFF;
-localparam [23:0] COLOR_TEXT   = 24'hFFFFFF;
-localparam [23:0] COLOR_TITLE  = 24'h20EAFF;
+localparam [23:0] COLOR_PANEL     = 24'h000000;
+localparam [23:0] COLOR_BORDER    = 24'hFFFFFF;
+localparam [23:0] COLOR_TEXT      = 24'hFFFFFF;
+localparam [23:0] COLOR_TITLE     = 24'h20EAFF;
+localparam [23:0] COLOR_TITLE_WON = 24'h20FF40;
 
 `ifdef RES_OVERLAY_DIM
 localparam DIM_BACKGROUND = 1;
@@ -99,31 +102,42 @@ function [4:0] text_glyph;
 	begin
 		text_glyph = GLYPH_SPACE;
 		case (tid)
-			TXT_TITLE: case (idx)          // "GAME OVER"
-				0: text_glyph = 5'd17;     // G
+			TXT_TITLE_OVER: case (idx)     // "GAME OVER"
+				0: text_glyph = 5'd15;     // G
 				1: text_glyph = 5'd11;     // A
-				2: text_glyph = 5'd20;     // M
-				3: text_glyph = 5'd15;     // E
+				2: text_glyph = 5'd17;     // M
+				3: text_glyph = 5'd14;     // E
 				4: text_glyph = GLYPH_SPACE;
-				5: text_glyph = 5'd21;     // O
+				5: text_glyph = 5'd19;     // O
 				6: text_glyph = 5'd25;     // V
-				7: text_glyph = 5'd15;     // E
-				8: text_glyph = 5'd22;     // R
+				7: text_glyph = 5'd14;     // E
+				8: text_glyph = 5'd21;     // R
+				default: text_glyph = GLYPH_SPACE;
+			endcase
+			TXT_TITLE_WON: case (idx)      // "GAME WON"
+				0: text_glyph = 5'd15;     // G
+				1: text_glyph = 5'd11;     // A
+				2: text_glyph = 5'd17;     // M
+				3: text_glyph = 5'd14;     // E
+				4: text_glyph = GLYPH_SPACE;
+				5: text_glyph = 5'd26;     // W
+				6: text_glyph = 5'd19;     // O
+				7: text_glyph = 5'd18;     // N
 				default: text_glyph = GLYPH_SPACE;
 			endcase
 			TXT_SCORE: case (idx)          // "SCORE"
-				0: text_glyph = 5'd23;     // S
+				0: text_glyph = 5'd22;     // S
 				1: text_glyph = 5'd13;     // C
-				2: text_glyph = 5'd21;     // O
-				3: text_glyph = 5'd22;     // R
-				4: text_glyph = 5'd15;     // E
+				2: text_glyph = 5'd19;     // O
+				3: text_glyph = 5'd21;     // R
+				4: text_glyph = 5'd14;     // E
 				default: text_glyph = GLYPH_SPACE;
 			endcase
 			TXT_BEST: case (idx)           // "BEST"
 				0: text_glyph = 5'd12;     // B
-				1: text_glyph = 5'd15;     // E
-				2: text_glyph = 5'd23;     // S
-				3: text_glyph = 5'd24;     // T
+				1: text_glyph = 5'd14;     // E
+				2: text_glyph = 5'd22;     // S
+				3: text_glyph = 5'd23;     // T
 				default: text_glyph = GLYPH_SPACE;
 			endcase
 			default: text_glyph = GLYPH_SPACE;
@@ -177,12 +191,12 @@ always @(*) begin
 	gc        = 10'd0;
 	ci        = 4'd0;
 
-	// Title "GAME OVER", scale 4
+	// Title "GAME OVER" or "GAME WON", scale 4
 	if (pixel_y >= TITLE_Y && pixel_y < TITLE_Y + 48) begin
-		gc = glyph_col(pixel_x, TITLE_X, TITLE_STRIDE, TITLE_GW, 4'd9);
+		gc = glyph_col(pixel_x, TITLE_X, TITLE_STRIDE, TITLE_GW, game_won ? 4'd8 : 4'd9);
 		if (gc[9]) begin
 			ci = gc[8:5];
-			glyph = text_glyph(TXT_TITLE, ci);
+			glyph = text_glyph(game_won ? TXT_TITLE_WON : TXT_TITLE_OVER, ci);
 			if (glyph != GLYPH_SPACE) begin
 				glyph_hit = 1'b1;
 				is_title  = 1'b1;
@@ -273,6 +287,7 @@ reg glyph_hit_d;
 reg is_title_d;
 reg [2:0] font_x_d;
 reg show_d;
+reg game_won_d;
 reg in_panel_d;
 reg in_border_d;
 reg [SVO_BITS_PER_PIXEL-1:0] base_d;
@@ -288,7 +303,7 @@ wire [23:0] dimmed = DIM_BACKGROUND ? dim_bgr888(base_d) : base_d;
 wire [23:0] bg_sel = show_d ? dimmed : base_d;
 
 assign out_axis_tdata =
-	(show_d && glyph_on)     ? (is_title_d ? COLOR_TITLE : COLOR_TEXT) :
+	(show_d && glyph_on)     ? (is_title_d ? (game_won_d ? COLOR_TITLE_WON : COLOR_TITLE) : COLOR_TEXT) :
 	(show_d && in_border_d)  ? COLOR_BORDER :
 	(show_d && in_panel_d)   ? dim_bgr888(base_d) :
 							   bg_sel;
@@ -299,6 +314,7 @@ always @(posedge clk) begin
 		is_title_d <= 0;
 		font_x_d <= 0;
 		show_d <= 0;
+		game_won_d <= 0;
 		in_panel_d <= 0;
 		in_border_d <= 0;
 		base_d <= 0;
@@ -311,6 +327,7 @@ always @(posedge clk) begin
 			is_title_d <= is_title;
 			font_x_d <= font_x;
 			show_d <= show;
+			game_won_d <= game_won;
 			in_panel_d <= in_panel;
 			in_border_d <= in_border;
 			base_d <= in_axis_tdata;

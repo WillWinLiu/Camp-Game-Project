@@ -39,7 +39,7 @@ if (!(Test-Path $InputPath -PathType Container)) {
 $resGlyphs = New-Object object[] 32
 for ($i = 0; $i -lt 32; $i++) { $resGlyphs[$i] = $null }
 foreach ($d in 0..9) { $resGlyphs[$d] = "$d" }
-$letters = @('B','C','E','I','M','O','P','R','S','T','U')  # indices 11..21
+$letters = @('A','B','C','E','G','I','M','N','O','P','R','S','T','U','V','W')  # indices 11..26
 for ($i = 0; $i -lt $letters.Count; $i++) { $resGlyphs[11 + $i] = $letters[$i] }
 
 # Return the 16 packed hex words for one glyph (blank if $basename is $null).

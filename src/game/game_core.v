@@ -67,6 +67,7 @@ wire [7:0] skill_timer;
 wire skill_on;
 wire game_over;
 wire menu_active;
+wire game_won;
 wire [1:0] game_state;
 wire [2:0] char_index;
 wire [2:0] selected_character;
@@ -107,6 +108,7 @@ game_ctrl #(
 	.skill_timer(skill_timer),
 	.skill_on(skill_on),
 	.game_over(game_over),
+	.game_won(game_won),
 	.menu_active(menu_active),
 	.game_state(game_state),
 	.char_index(char_index),
@@ -211,7 +213,8 @@ res_overlay #(
 	.clk(clk),
 	.resetn(resetn),
 
-	.show(game_over),
+	.show(game_over || game_won),
+	.game_won(game_won),
 	.score_bcd(score_bcd),
 	.high_score_bcd(high_score_bcd),
 
