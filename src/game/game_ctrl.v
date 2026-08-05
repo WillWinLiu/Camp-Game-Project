@@ -317,12 +317,12 @@ always @(posedge clk) begin
 							skill_charge <= skill_charge + 1;
 						end
 						case (next_shield_score)
-							12'd50:  next_shield_score <= 12'd200;
-							12'd200: next_shield_score <= 12'd350;
-							12'd350: next_shield_score <= 12'd500;
-							12'd500: next_shield_score <= 12'd650;
-							12'd650: next_shield_score <= 12'd800;
-							12'd800: next_shield_score <= 12'd950;
+							12'd50:  next_shield_score <= 12'd150;
+							12'd150: next_shield_score <= 12'd250;
+							12'd250: next_shield_score <= 12'd400;
+							12'd400: next_shield_score <= 12'd550;
+							12'd550: next_shield_score <= 12'd700;
+							12'd700: next_shield_score <= 12'd850;
 							default: next_shield_score <= next_shield_score + 12'd150;
 						endcase
 					end
@@ -397,7 +397,7 @@ always @(posedge clk) begin
 							obj_lane[obj_count - 1] <= (spawn_type == 1'b0) ? 4'hF : spawn_lane;
 							obj_xoff[obj_count - 1] <= (spawn_type == 1'b0) ? 4'hF : spawn_xoff;
 							obj_type[obj_count - 1] <= spawn_type;
-							obj_ypos[obj_count - 1] <= (spawn_type == 1'b0) ? 10'd384 : 10'd0;
+							obj_ypos[obj_count - 1] <= (spawn_type == 1'b0) ? 10'd386 : 10'd0;
 							obj_count <= obj_count;
 						end else begin
 							obj_count <= obj_count - 1;
@@ -430,7 +430,7 @@ always @(posedge clk) begin
 							obj_lane[obj_count] <= (spawn_type == 1'b0) ? 4'hF : spawn_lane;
 							obj_xoff[obj_count] <= (spawn_type == 1'b0) ? 4'hF : spawn_xoff;
 							obj_type[obj_count] <= spawn_type;
-							obj_ypos[obj_count] <= (spawn_type == 1'b0) ? 10'd384 : 10'd0;
+							obj_ypos[obj_count] <= (spawn_type == 1'b0) ? 10'd386 : 10'd0;
 							obj_count <= obj_count + 1;
 						end
 					end

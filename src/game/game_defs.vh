@@ -4,4 +4,4 @@
 `define OBJ_H 10'd32
 `define PLAYER_W 10'd32
 `define PLAYER_H 10'd32
-`define PLAYER_Y 10'd384
+`define PLAYER_Y 10'd385
