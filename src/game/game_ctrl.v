@@ -290,6 +290,11 @@ always @(posedge clk) begin
 				state <= S_MENU;
 				menu_btn_timer <= 15;
 			end
+		end else if (state == S_WON) begin
+			if (btn_start_rise || (any_start_btn && frame_tick)) begin
+				state <= S_MENU;
+				menu_btn_timer <= 15;
+			end
 		end else begin
 			if (frame_tick && state == S_PLAY) begin
 					btn_start_q <= any_start_btn;
