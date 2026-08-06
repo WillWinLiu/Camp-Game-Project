@@ -3,7 +3,7 @@
 
 module char_menu #(
 	`SVO_DEFAULT_PARAMS,
-	parameter NUM_CHARS = 5
+	parameter NUM_CHARS = 8
 ) (
 	input wire clk,
 	input wire resetn,

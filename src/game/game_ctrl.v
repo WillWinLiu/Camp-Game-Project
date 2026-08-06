@@ -255,7 +255,7 @@ always @(posedge clk) begin
 						menu_btn_timer <= 15;
 					end
 				end else if (btn_right_rise || (btn_right && frame_tick)) begin
-					if (char_index < 4) begin
+					if (char_index < 7) begin
 						char_index <= char_index + 1;
 						menu_btn_timer <= 15;
 					end
